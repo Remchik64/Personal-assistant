@@ -2,6 +2,8 @@ from st_pages import Page, show_pages, add_page_title
 import streamlit as st
 import os
 from utils.database.database_manager import get_database
+import importlib
+import st_pages
 
 # Словарь с настройками страниц
 PAGE_CONFIG = {
@@ -69,6 +71,7 @@ PAGE_CONFIG = {
 
 def setup_pages():
     """Настройка страниц приложения"""
+    importlib.reload(st_pages)
     pages_to_show = []
     is_authenticated = st.session_state.get("authenticated", False)
     
@@ -106,15 +109,23 @@ def setup_pages():
                     Page(page_path, name=config["name"], icon=config["icon"])
                 )
     
-    # Перед вызовом show_pages сбрасываем глобальное состояние st_pages, если оно существует
-    try:
-        import st_pages
-        if hasattr(st_pages, '_PAGES'):
-            st_pages._PAGES.clear()
-    except Exception as e:
-        print(f"Не удалось сбросить состояние st_pages: {e}")
+    # Новый код для изоляции страниц для каждого сеанса
+    session_id = str(id(st.session_state))
+    if not hasattr(st_pages, '_SESSION_PAGES'):
+        st_pages._SESSION_PAGES = {}
+    st_pages._SESSION_PAGES[session_id] = pages_to_show.copy()
     
-    show_pages(pages_to_show)
+    # Патчим функцию show_pages, если ещё не сделано
+    if not hasattr(st_pages, 'original_show_pages'):
+        st_pages.original_show_pages = st_pages.show_pages
+        def session_show_pages(*args, **kwargs):
+            sid = str(id(st.session_state))
+            pages = st_pages._SESSION_PAGES.get(sid, [])
+            st_pages.original_show_pages(pages)
+        st_pages.show_pages = session_show_pages
+    
+    # Вызываем переопределённую функцию show_pages для текущего сеанса
+    st_pages.show_pages()
 
 def check_token_access():
     """Проверка доступа к функционалу, требующему токен"""
