@@ -71,7 +71,15 @@ def setup_pages():
     """Настройка страниц приложения"""
     pages_to_show = []
     is_authenticated = st.session_state.get("authenticated", False)
-    is_admin = st.session_state.get("is_admin", False)
+    
+    # Проверяем, является ли пользователь администратором
+    is_admin = False
+    if is_authenticated and "username" in st.session_state:
+        try:
+            is_admin = st.session_state.username == st.secrets["admin"]["admin_username"]
+        except Exception as e:
+            print(f"Ошибка при проверке прав администратора: {e}")
+            is_admin = False
     
     # Показываем страницу регистрации только если пользователь не аутентифицирован
     if not is_authenticated:
@@ -84,10 +92,11 @@ def setup_pages():
         if page_id == "registr":
             continue
             
+        # Проверяем права доступа к странице
         should_show = (
             is_authenticated and 
             config["show_when_authenticated"] and
-            (not config.get("admin_only", False) or is_admin)
+            (not config.get("admin_only", False) or is_admin)  # Показываем админ-страницы только администраторам
         )
         
         if should_show and config.get("show_in_menu", True):

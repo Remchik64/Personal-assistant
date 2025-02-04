@@ -273,3 +273,23 @@ def is_token_deactivated(token):
     except Exception as e:
         print(f"Ошибка при проверке деактивированного токена: {str(e)}")
         return False
+
+def verify_admin_access():
+    """Проверяет, имеет ли текущий пользователь права администратора"""
+    if "username" not in st.session_state:
+        st.error("Доступ запрещен")
+        switch_page("registr")
+        return False
+    
+    try:
+        admin_username = st.secrets["admin"]["admin_username"]
+        if st.session_state.username != admin_username:
+            st.error("У вас нет прав для доступа к этой странице")
+            switch_page("app")
+            return False
+        return True
+    except Exception as e:
+        print(f"Ошибка при проверке прав администратора: {e}")
+        st.error("Ошибка при проверке прав доступа")
+        switch_page("app")
+        return False

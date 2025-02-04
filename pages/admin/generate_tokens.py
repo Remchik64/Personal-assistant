@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.utils import generate_and_save_token
+from utils.utils import generate_and_save_token, verify_admin_access
 from utils.page_config import setup_pages
 from utils.database.database_manager import get_database
 from datetime import datetime, timedelta
@@ -111,6 +111,10 @@ if not verify_admin_session():
 
 # Обновляем время активности при каждом действии
 update_admin_activity()
+
+# Проверка прав администратора
+if not verify_admin_access():
+    st.stop()
 
 st.title("Генерация токенов (Админ панель)")
 
