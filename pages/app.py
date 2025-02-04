@@ -516,7 +516,7 @@ if "authenticated" not in st.session_state or not st.session_state.authenticated
 user = db.get_user(st.session_state.username)
 if not user or not user.get('active_token'):
     st.warning("Необходим активный токен")
-    st.switch_page("pages/key_input.py")
+    st.switch_page("key_input.py")
     st.stop()
 
 # Заголовок страницы
