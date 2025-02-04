@@ -7,6 +7,7 @@ setup_pages()
 
 # Проверяем аутентификацию
 if "authenticated" in st.session_state and st.session_state.authenticated:
-    switch_page("Главная")
+    # Переключаемся на страницу app (Поисковый отдел)
+    switch_page(PAGE_CONFIG["app"]["name"])
 else:
     switch_page(PAGE_CONFIG["registr"]["name"])

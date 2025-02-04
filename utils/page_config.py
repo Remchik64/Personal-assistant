@@ -4,6 +4,11 @@ import os
 from utils.database.database_manager import get_database
 import importlib
 import st_pages
+import redis
+import json
+from datetime import timedelta
+import time
+from utils.redis_client import get_redis_client
 
 # Словарь с настройками страниц
 PAGE_CONFIG = {
@@ -62,44 +67,72 @@ PAGE_CONFIG = {
     "admin/analytics": {
         "name": "Аналитика",
         "icon": "📊",
-        "order": 9,
+        "order": 8,
         "show_when_authenticated": True,
         "show_in_menu": True,
         "admin_only": True
     }
 }
 
+@st.cache_resource(show_spinner=False)
+def get_pages_store():
+    """Создает изолированное хранилище страниц"""
+    return {}
+
 def setup_pages():
     """Настройка страниц приложения"""
-    importlib.reload(st_pages)
+    # Проверяем состояние сессии в Redis
+    redis_client = get_redis_client()
+    session_id = st.session_state.get("_session_id")
+    username = st.session_state.get("username", "anonymous")
+    
+    if redis_client and session_id and username != "anonymous":
+        session_key = f"session:{username}:{session_id}"
+        session_data = redis_client.get(session_key)
+        
+        if not session_data:
+            # Если сессия не найдена в Redis, сбрасываем состояние
+            st.session_state.authenticated = False
+            st.session_state.username = None
+            st.session_state.is_admin = False
+            st.session_state._session_id = None
+            show_pages([Page("pages/registr.py", name=PAGE_CONFIG["registr"]["name"], icon=PAGE_CONFIG["registr"]["icon"])])
+            return
+        
+        # Обновляем состояние из Redis
+        try:
+            session_data = json.loads(session_data)
+            st.session_state.authenticated = session_data.get("authenticated", False)
+            st.session_state.is_admin = session_data.get("is_admin", False)
+        except Exception as e:
+            print(f"Ошибка при загрузке данных сессии: {e}")
+    
+    # Формируем список страниц
     pages_to_show = []
     is_authenticated = st.session_state.get("authenticated", False)
+    is_admin = st.session_state.get("is_admin", False)
     
-    # Проверяем, является ли пользователь администратором
-    is_admin = False
-    if is_authenticated and "username" in st.session_state:
-        try:
-            is_admin = st.session_state.username == st.secrets["admin"]["admin_username"]
-        except Exception as e:
-            print(f"Ошибка при проверке прав администратора: {e}")
-            is_admin = False
-    
-    # Показываем страницу регистрации только если пользователь не аутентифицирован
+    # Страница регистрации для неаутентифицированных пользователей
     if not is_authenticated:
-        pages_to_show.append(
-            Page("pages/registr.py", name=PAGE_CONFIG["registr"]["name"], icon=PAGE_CONFIG["registr"]["icon"])
-        )
+        reg_page_path = "pages/registr.py"
+        if os.path.exists(reg_page_path):
+            pages_to_show.append(
+                Page(reg_page_path, name=PAGE_CONFIG["registr"]["name"], icon=PAGE_CONFIG["registr"]["icon"])
+            )
+        else:
+            print(f"Ошибка: Файл {reg_page_path} не найден")
+            return
     
     # Добавляем остальные страницы
     for page_id, config in sorted(PAGE_CONFIG.items(), key=lambda x: x[1]["order"]):
         if page_id == "registr":
             continue
-            
-        # Проверяем права доступа к странице
+        
+        # Проверяем права доступа
         should_show = (
             is_authenticated and 
             config["show_when_authenticated"] and
-            (not config.get("admin_only", False) or is_admin)  # Показываем админ-страницы только администраторам
+            (not config.get("admin_only", False) or is_admin)
         )
         
         if should_show and config.get("show_in_menu", True):
@@ -108,24 +141,21 @@ def setup_pages():
                 pages_to_show.append(
                     Page(page_path, name=config["name"], icon=config["icon"])
                 )
+            else:
+                print(f"Предупреждение: Файл {page_path} не найден")
     
-    # Новый код для изоляции страниц для каждого сеанса
-    session_id = str(id(st.session_state))
-    if not hasattr(st_pages, '_SESSION_PAGES'):
-        st_pages._SESSION_PAGES = {}
-    st_pages._SESSION_PAGES[session_id] = pages_to_show.copy()
-    
-    # Патчим функцию show_pages, если ещё не сделано
-    if not hasattr(st_pages, 'original_show_pages'):
-        st_pages.original_show_pages = st_pages.show_pages
-        def session_show_pages(pages=None, *args, **kwargs):
-            sid = str(id(st.session_state))
-            pages_to_use = st_pages._SESSION_PAGES.get(sid, [])
-            st_pages.original_show_pages(pages_to_use)
-        st_pages.show_pages = session_show_pages
-    
-    # Вызываем переопределённую функцию show_pages для текущего сеанса
-    st_pages.show_pages(pages_to_show)
+    if not pages_to_show:
+        print("Ошибка: Нет доступных страниц для отображения")
+        return
+        
+    # Отображаем страницы
+    try:
+        show_pages(pages_to_show)
+    except Exception as e:
+        print(f"Ошибка при отображении страниц: {e}")
+        # Показываем только страницу регистрации в случае ошибки
+        if not is_authenticated:
+            show_pages([Page("pages/registr.py", name=PAGE_CONFIG["registr"]["name"], icon=PAGE_CONFIG["registr"]["icon"])])
 
 def check_token_access():
     """Проверка доступа к функционалу, требующему токен"""

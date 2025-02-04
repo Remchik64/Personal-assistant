@@ -4,8 +4,11 @@ import os
 from PIL import Image
 from utils.page_config import setup_pages, PAGE_CONFIG
 from utils.security import hash_password, is_strong_password, verify_password, check_login_attempts, increment_login_attempts, reset_login_attempts
-from datetime import datetime
+from datetime import datetime, timedelta
 from utils.database.database_manager import get_database
+from utils.redis_client import get_redis_client
+import json
+import time
 
 # Получаем экземпляр базы данных
 db = get_database()
@@ -104,9 +107,31 @@ def login(username, password):
     # Получаем пользователя из MongoDB
     user = db.users.find_one({"username": username})
     if user and verify_password(password, user['password']):
+        # Генерируем уникальный идентификатор сессии
+        session_id = str(id(st.session_state))
+        st.session_state._session_id = session_id
+        
+        # Сохраняем состояние сессии
         st.session_state.authenticated = True
         st.session_state.username = username
         st.session_state.is_admin = user.get('is_admin', False)
+        
+        # Сохраняем информацию о сессии в Redis
+        redis_client = get_redis_client()
+        if redis_client:
+            session_key = f"session:{username}:{session_id}"
+            session_data = {
+                "authenticated": True,
+                "username": username,
+                "is_admin": user.get('is_admin', False),
+                "timestamp": time.time()
+            }
+            redis_client.setex(
+                session_key,
+                timedelta(hours=24),
+                json.dumps(session_data)
+            )
+        
         # Устанавливаем состояние бокового меню как развернутое
         st.session_state.sidebar_state = "expanded"
         reset_login_attempts(username)
@@ -135,14 +160,36 @@ with col2:
         if st.button("Войти", key="login_button"):
             if username and password:  # Проверка на пустые поля
                 if username == st.secrets["admin"]["admin_username"] and password == st.secrets["admin"]["admin_password"]:
+                    # Генерируем уникальный идентификатор сессии для админа
+                    admin_session_id = str(id(st.session_state))
+                    st.session_state._session_id = admin_session_id
+                    
+                    # Сохраняем состояние сессии админа
                     st.session_state.authenticated = True
                     st.session_state.username = username
                     st.session_state.is_admin = True
+                    
+                    # Сохраняем информацию о сессии админа в Redis
+                    redis_client = get_redis_client()
+                    if redis_client:
+                        admin_session_key = f"session:{username}:{admin_session_id}"
+                        admin_session_data = {
+                            "authenticated": True,
+                            "username": username,
+                            "is_admin": True,
+                            "timestamp": time.time()
+                        }
+                        redis_client.setex(
+                            admin_session_key,
+                            timedelta(hours=24),
+                            json.dumps(admin_session_data)
+                        )
+                    
                     # Устанавливаем состояние бокового меню как развернутое
                     st.session_state.sidebar_state = "expanded"
                     st.success("Вход выполнен успешно!")
                     setup_pages()
-                    switch_page(PAGE_CONFIG["key_input"]["name"])
+                    st.rerun()
                 elif login(username, password):
                     user = db.users.find_one({"username": username})
                     st.session_state.authenticated = True 
@@ -151,7 +198,7 @@ with col2:
                     # Устанавливаем состояние бокового меню как развернутое
                     st.session_state.sidebar_state = "expanded"
                     setup_pages()
-                    switch_page(PAGE_CONFIG["key_input"]["name"])
+                    st.rerun()
                 else:
                     st.error("Неправильный логин или пароль.")
             else:
@@ -190,11 +237,11 @@ with col2:
                         st.session_state.username = reg_username
                         st.session_state.authenticated = True
                         setup_pages() 
-                        switch_page(PAGE_CONFIG["key_input"]["name"])
+                        st.rerun()
                     else:
                         st.error(message)
         st.markdown("</div>", unsafe_allow_html=True)
 
 # Убедимся, что пользователь аутентифицирован
 if "authenticated" in st.session_state and st.session_state.authenticated:
-    switch_page(PAGE_CONFIG["key_input"]["name"])
+    st.rerun()
