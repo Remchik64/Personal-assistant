@@ -118,14 +118,14 @@ def setup_pages():
     # Патчим функцию show_pages, если ещё не сделано
     if not hasattr(st_pages, 'original_show_pages'):
         st_pages.original_show_pages = st_pages.show_pages
-        def session_show_pages(*args, **kwargs):
+        def session_show_pages(pages=None, *args, **kwargs):
             sid = str(id(st.session_state))
-            pages = st_pages._SESSION_PAGES.get(sid, [])
-            st_pages.original_show_pages(pages)
+            pages_to_use = st_pages._SESSION_PAGES.get(sid, [])
+            st_pages.original_show_pages(pages_to_use)
         st_pages.show_pages = session_show_pages
     
     # Вызываем переопределённую функцию show_pages для текущего сеанса
-    st_pages.show_pages()
+    st_pages.show_pages(pages_to_show)
 
 def check_token_access():
     """Проверка доступа к функционалу, требующему токен"""
