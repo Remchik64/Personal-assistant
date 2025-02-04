@@ -1,0 +1,70 @@
+# Access keys and sensitive data
+chat/access_keys.json
+chat/access_keys.txt
+*.json
+!package.json
+!package-lock.json
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment variables
+.env
+.env.local
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Secrets
+secrets.toml
+
+# Virtual Environment
+venv/
+ENV/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Local development
+.DS_Store
+Thumbs.db
+
+# MongoDB
+*.mongodb
+mongod.lock
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# Package files
+package-lock.json
+package.json

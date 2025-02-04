@@ -1,0 +1,18 @@
+[theme]
+base="dark"
+primaryColor="#0ac398"
+font="monospace"
+
+[server]
+port = 8501
+enableXsrfProtection=false
+
+[client]
+toolbarMode = "auto"
+showErrorDetails = true
+
+[logger]
+level = "info"
+messageFormat = "%(asctime)s %(message)s"
+
+
