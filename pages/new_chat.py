@@ -426,9 +426,11 @@ if user:
     remaining_generations = user.get('remaining_generations', 0)
     st.sidebar.metric("Осталось генераций:", remaining_generations)
     
+    # Определяем возможность отправки сообщений
+    can_send_messages = remaining_generations > 0
+    
     if remaining_generations <= 0:
-        st.error("У вас закончились генераций. Пожалуйста, активируйте новый токен, купить новый можно в https://startintellect.ru/products")
-        st.stop()
+        st.sidebar.error("У вас закончились генераций. Вы не можете отправлять и получать сообщения. Пожалуйста, активируйте новый токен, купить новый можно в https://startintellect.ru/products")
 
 # Управление чат-потоками в боковой панели
 st.sidebar.title("Управление чат-потоками")
@@ -541,11 +543,13 @@ if 'current_chat_flow' in st.session_state:
     # Управление сессиями
     with st.expander("🎯 Управление сессиями", expanded=False):
         # Получаем доступные сессии
-
         available_sessions = get_available_sessions(
             st.session_state.username,
             st.session_state.current_chat_flow['id']
         )
+        
+        # Инициализируем переменную is_primary
+        is_primary = False
         
         # Если нет текущей сессии, создаем новую
         if 'current_session' not in st.session_state.current_chat_flow:
@@ -950,6 +954,8 @@ with col3:
 
 # Изменяем логику отправки сообщения
 if send_button:  # Отправляем только при явном нажатии кнопки
-    if user_input and user_input.strip():
+    if not can_send_messages:
+        st.error("Отправка сообщений недоступна. Пожалуйста, активируйте новый токен.")
+    elif user_input and user_input.strip():
         st.session_state['_last_input'] = user_input
         submit_message(user_input)

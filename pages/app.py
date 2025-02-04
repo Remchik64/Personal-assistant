@@ -509,28 +509,27 @@ setup_pages()
 # Проверка аутентификации
 if "authenticated" not in st.session_state or not st.session_state.authenticated:
     st.warning("Пожалуйста, войдите в систему")
-    st.switch_page("pages/registr.py")
+    st.switch_page("registr.py")
     st.stop()
 
 # Проверка наличия активного токена
 user = db.get_user(st.session_state.username)
-if not user or not user.get('active_token'):
-    st.warning("Необходим активный токен")
-    st.switch_page("key_input.py")
-    st.stop()
+# Ранее здесь выполнялся редирект, но теперь мы показываем страницу для всех зарегистрированных пользователей.
 
 # Заголовок страницы
 st.title(f"{PAGE_CONFIG['app']['icon']} {PAGE_CONFIG['app']['name']}")
 
 # Отображение оставшихся генераций
 user_data = db.get_user(st.session_state.username)
-if user_data:
+if user_data and user_data.get('active_token'):
     remaining_generations = user_data.get('remaining_generations', 0)
-    st.sidebar.metric("Осталось генераций:", remaining_generations)
-    
-    if remaining_generations <= 0:
-        st.error("У вас закончились генераций. Пожалуйста, активируйте новый токен.")
-        st.stop()
+else:
+    remaining_generations = 0
+
+st.sidebar.metric("Осталось генераций:", remaining_generations)
+
+if remaining_generations <= 0:
+    st.error("У вас закончились генераций. Вы не можете отправлять и получать сообщения. Пожалуйста, активируйте новый токен.")
 
 # Управление сессиями
 with st.expander("🎯 Управление сессиями", expanded=False):
@@ -731,5 +730,9 @@ with col2:
 with col3:
     cancel_button = st.button("Отменить", on_click=lambda: setattr(st.session_state, 'message_input', ''), use_container_width=True, key="cancel_message_button")
 
+# Если нет токена, отправка сообщения блокируется
 if send_button and user_input and user_input.strip():
-    submit_question()
+    if remaining_generations <= 0:
+        st.error("Отправка сообщений недоступна, так как у вас нет активного токена с генерациями.")
+    else:
+        submit_question()

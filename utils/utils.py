@@ -215,18 +215,15 @@ def update_remaining_generations(username, used):
     return True
 
 def verify_user_access():
-    """Проверяет доступ пользователя"""
+    """Проверяет доступ пользователя.
+    Теперь проверяется только наличие авторизации, без обязательного наличия активного токена.
+    Если пользователь не авторизован, перенаправляем на страницу регистрации."""
     if "username" not in st.session_state:
         st.warning("Необходима авторизация")
         switch_page("registr")
         return False
-    
-    user = db.get_user(st.session_state.username)
-    if not user or not user.get('active_token'):
-        st.warning("Необходим активный токен")
-        switch_page("key_input")
-        return False
-    
+
+    # Ранее здесь проверялся активный токен, но теперь мы разрешаем доступ, даже если токен не активирован.
     return True
 
 def generate_unique_token():
