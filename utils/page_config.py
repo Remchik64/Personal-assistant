@@ -106,6 +106,14 @@ def setup_pages():
                     Page(page_path, name=config["name"], icon=config["icon"])
                 )
     
+    # Перед вызовом show_pages сбрасываем глобальное состояние st_pages, если оно существует
+    try:
+        import st_pages
+        if hasattr(st_pages, '_PAGES'):
+            st_pages._PAGES.clear()
+    except Exception as e:
+        print(f"Не удалось сбросить состояние st_pages: {e}")
+    
     show_pages(pages_to_show)
 
 def check_token_access():
